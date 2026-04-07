@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Spaceship</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050510;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlays */
+        #uiLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(5, 5, 25, 0.95);
+            padding: 30px;
+            border: 3px solid #0ff;
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            max-width: 90%;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            color: #0ff;
+            text-transform: uppercase;
+            font-size: 32px;
+            margin: 0 0 15px 0;
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        p {
+            color: #fff;
+            font-size: 16px;
+            margin: 5px 0 25px 0;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .difficulty-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            pointer-events: auto;
+        }
+
+        button {
+            padding: 14px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            background: rgba(0, 255, 255, 0.05);
+            color: #fff;
+            border: 2px solid #0ff;
+            border-radius: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 0 5px #fff;
+        }
+
+        button:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 25px #0ff;
+            transform: scale(1.05);
+        }
+
+        button.easy { border-color: #0f0; color: #0f0; box-shadow: 0 0 10px rgba(0, 255, 0, 0.3); }
+        button.moderate { border-color: #ff0; color: #ff0; box-shadow: 0 0 10px rgba(255, 255, 0, 0.3); }
+        button.hardcore { border-color: #f00; color: #f00; box-shadow: 0 0 10px rgba(255, 0, 0, 0.3); }
+
+        .score-display {
+            font-size: 38px;
+            color: #f0f;
+            font-weight: bold;
+            text-shadow: 0 0 15px #f0f;
+        }
+
+        #hud {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .hud-text {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 900;
+            text-shadow: 0 0 8px #0ff;
+            margin-bottom: 5px;
+        }
+
+        #speedAlert {
+            position: absolute;
+            top: 40%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #ff0;
+            font-size: 48px;
+            font-weight: 900;
+            text-shadow: 0 0 25px #ff0, 0 0 40px #f00;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            transform: scale(0.8);
+        }
+
+        #speedAlert.show {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-text" id="hudScore">Score: 0</div>
+        <div class="hud-text" id="hudHighScore">Best: 0</div>
+        <div class="hud-text" id="hudDifficulty" style="font-size: 14px; opacity: 0.9;"></div>
+    </div>
+    
+    <div id="speedAlert">WARP SPEED!</div>
+
+    <div id="uiLayer">
+        <!-- Start Screen -->
+        <div id="startScreen" class="screen">
+            <h1>Neon Vanguard</h1>
+            <p>Select Difficulty Level</p>
+            <div class="difficulty-container">
+                <button class="easy" onclick="initGame('EASY')">Easy (5% Up)</button>
+                <button class="moderate" onclick="initGame('MODERATE')">Moderate (7% Up)</button>
+                <button class="hardcore" onclick="initGame('HARDCORE')">Hardcore (10% Up)</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="screen hidden">
+            <h1>System Failure</h1>
+            <p>Score: <span id="finalScore" class="score-display">0</span></p>
+            <p>High Score: <span id="finalHighScore" class="score-display">0</span></p>
+            <div class="difficulty-container" style="margin-top: 15px;">
+                <button id="restartBtn" style="border-color: #f0f; color: #f0f; box-shadow: 0 0 15px #f0f;">Back to Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const hudScore = document.getElementById('hudScore');
+        const hudHighScore = document.getElementById('hudHighScore');
+        const hudDifficulty = document.getElementById('hudDifficulty');
+        const speedAlert = document.getElementById('speedAlert');
+        const restartBtn = document.getElementById('restartBtn');
+
+        let cw, ch, animationId;
+        let state = 'START';
+        let score = 0;
+        let highScore = 0;
+        let frames = 0;
+        let difficultyMode = 'EASY';
+        
+        const gravity = 0.25;
+        const jumpStrength = -6.0;
+        const initialPipeSpeed = 3.5;
+        let pipeSpeed = initialPipeSpeed;
+        const pipeWidth = 80;
+        const pipeGap = 185;
+        let lastSpeedIncreaseScore = 0;
+
+        // --- Character Image Loading ---
+        const shipImg = new Image();
+        shipImg.src = 'Spaceship remove.bg.jpg';
+        let imageLoaded = false;
+        shipImg.onload = () => { imageLoaded = true; };
+
+        function resize() {
+            cw = window.innerWidth;
+            ch = window.innerHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const stars = Array.from({length: 120}, () => ({
+            x: Math.random() * cw,
+            y: Math.random() * ch,
+            size: Math.random() * 2 + 0.5,
+            speed: Math.random() * 2 + 0.5,
+            color: Math.random() > 0.7 ? '#0ff' : (Math.random() > 0.85 ? '#f0f' : '#fff')
+        }));
+
+        function drawStars() {
+            stars.forEach(star => {
+                ctx.fillStyle = star.color;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+                if (state === 'PLAYING') {
+                    star.x -= star.speed * (pipeSpeed / initialPipeSpeed);
+                    if(star.x < 0) {
+                        star.x = cw;
+                        star.y = Math.random() * ch;
+                    }
+                }
+            });
+        }
+
+        const ship = {
+            x: 0, y: 0, w: 100, h: 65, vy: 0,
+            radius: 18, // Tight hitbox for better feel
+            
+            reset: function() {
+                this.x = cw * 0.25;
+                this.y = ch / 2;
+                this.vy = 0;
+            },
+            flap: function() {
+                this.vy = jumpStrength;
+                // Double thrust particles
+                createParticles(this.x - 45, this.y - 10, 8, '#0ff');
+                createParticles(this.x - 45, this.y + 10, 8, '#f0f');
+            },
+            update: function() {
+                this.vy += gravity;
+                this.y += this.vy;
+                if (this.y + this.radius >= ch || this.y - this.radius <= 0) triggerGameOver();
+            },
+            draw: function() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // Tilt ship based on velocity
+                let rotation = Math.min(Math.PI / 8, Math.max(-Math.PI / 8, (this.vy * 0.05)));
+                ctx.rotate(rotation);
+                
+                if (imageLoaded) {
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = '#0ff';
+                    // Use a slightly larger display width to show the pixel detail
+                    ctx.drawImage(shipImg, -this.w / 2, -this.h / 2, this.w, this.h);
+                } else {
+                    ctx.fillStyle = '#0ff';
+                    ctx.fillRect(-20, -10, 40, 20);
+                }
+                ctx.restore();
+                ctx.shadowBlur = 0;
+            }
+        };
+
+        const pipes = {
+            items: [],
+            reset: function() { this.items = []; },
+            update: function() {
+                let spawnInterval = Math.max(55, Math.floor(95 / (pipeSpeed / initialPipeSpeed)));
+                if (frames % spawnInterval === 0) {
+                    let minH = 70;
+                    let topHeight = Math.random() * (ch - pipeGap - minH * 2) + minH;
+                    this.items.push({ x: cw, top: topHeight, passed: false });
+                }
+                
+                for (let i = 0; i < this.items.length; i++) {
+                    let p = this.items[i];
+                    p.x -= pipeSpeed;
+
+                    // Hitbox logic
+                    if (ship.x + ship.radius > p.x && ship.x - ship.radius < p.x + pipeWidth) {
+                        if (ship.y - ship.radius < p.top || ship.y + ship.radius > p.top + pipeGap) {
+                            triggerGameOver();
+                        }
+                    }
+
+                    if (p.x + pipeWidth < ship.x && !p.passed) {
+                        score++;
+                        p.passed = true;
+                        updateHUD();
+                        checkDifficulty();
+                    }
+                    if (p.x + pipeWidth < -30) { this.items.shift(); i--; }
+                }
+            },
+            draw: function() {
+                this.items.forEach(p => {
+                    let pipeColor = difficultyMode === 'HARDCORE' ? '#ff3333' : (difficultyMode === 'MODERATE' ? '#ffff33' : '#33ffff');
+                    
+                    ctx.shadowBlur = 25;
+                    ctx.shadowColor = pipeColor;
+                    ctx.fillStyle = pipeColor;
+                    
+                    // Top pipe
+                    ctx.fillRect(p.x, 0, pipeWidth, p.top);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(p.x - 4, p.top - 18, pipeWidth + 8, 18); // Pipe Lip
+                    
+                    // Bottom pipe
+                    ctx.fillStyle = pipeColor;
+                    ctx.fillRect(p.x, p.top + pipeGap, pipeWidth, ch - (p.top + pipeGap));
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(p.x - 4, p.top + pipeGap, pipeWidth + 8, 18); // Pipe Lip
+                    
+                    ctx.shadowBlur = 0;
+                });
+            }
+        };
+
+        let particles = [];
+        function createParticles(x, y, count, color) {
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: -(Math.random() * 5 + 3),
+                    vy: Math.random() * 4 - 2,
+                    life: 1.0,
+                    color: color || '#0ff'
+                });
+            }
+        }
+
+        function updateAndDrawParticles() {
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.035;
+                if(p.life <= 0) { particles.splice(i, 1); return; }
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 6 * p.life, 0, Math.PI*2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+        }
+
+        window.initGame = function(mode) {
+            difficultyMode = mode;
+            ship.reset();
+            pipes.reset();
+            particles = [];
+            score = 0;
+            frames = 0;
+            pipeSpeed = initialPipeSpeed;
+            lastSpeedIncreaseScore = 0;
+            
+            updateHUD();
+            state = 'PLAYING';
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            if (!animationId) gameLoop();
+        };
+
+        function triggerGameOver() {
+            state = 'GAMEOVER';
+            if (score > highScore) highScore = score;
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalHighScore').innerText = highScore;
+            hudHighScore.innerText = `Best: ${highScore}`;
+            gameOverScreen.classList.remove('hidden');
+            createParticles(ship.x, ship.y, 60, '#f33'); // Explosion
+        }
+
+        function checkDifficulty() {
+            if (score > 0 && score % 10 === 0 && score !== lastSpeedIncreaseScore) {
+                let multiplier = 1.05; 
+                if (difficultyMode === 'MODERATE') multiplier = 1.07;
+                if (difficultyMode === 'HARDCORE') multiplier = 1.10;
+                
+                pipeSpeed *= multiplier;
+                lastSpeedIncreaseScore = score;
+                
+                speedAlert.classList.add('show');
+                setTimeout(() => speedAlert.classList.remove('show'), 1500);
+            }
+        }
+
+        function updateHUD() {
+            hudScore.innerText = `Score: ${score}`;
+            hudDifficulty.innerText = `Level: ${difficultyMode}`;
+            hudDifficulty.style.color = difficultyMode === 'HARDCORE' ? '#ff3333' : (difficultyMode === 'MODERATE' ? '#ffff33' : '#33ffff');
+        }
+
+        function handleInput(e) {
+            if (e && e.type === 'keydown' && e.code !== 'Space' && e.code !== 'ArrowUp') return;
+            if (state === 'PLAYING') ship.flap();
+        }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); }, {passive: false});
+        window.addEventListener('keydown', handleInput);
+        restartBtn.onclick = () => {
+            gameOverScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        };
+
+        function gameLoop() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, cw, ch);
+            
+            drawStars();
+            updateAndDrawParticles();
+            
+            if (state === 'PLAYING') {
+                pipes.update();
+                ship.update();
+                frames++;
+            }
+            
+            pipes.draw();
+            if (state !== 'START') ship.draw();
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        drawStars();
+    </script>
+</body>
+</html>
